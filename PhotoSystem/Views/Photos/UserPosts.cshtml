@@ -1,0 +1,88 @@
+﻿@model IEnumerable<PhotoSystem.Models.PhotoPost>
+
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<PhotoSystem.Models.ApplicationUser> UserManager
+
+@{
+    ViewData["Title"] = "Публікації користувача";
+    var currentUserId = UserManager.GetUserId(User);
+}
+
+<h2>Публікації користувача</h2>
+
+@if (!Model.Any())
+{
+    <p>У цього користувача поки немає публікацій.</p>
+}
+else
+{
+    foreach (var p in Model)
+    {
+        var likesCount = p.Likes?.Count ?? 0;
+        var myLike = p.Likes?.FirstOrDefault(l => l.UserId == currentUserId);
+        var emojisGrouped = p.Likes?
+            .GroupBy(l => l.Emoji)
+            .Select(g => $"{g.Key} {g.Count()}");
+
+        <div class="card mb-3">
+            <img src="@p.ImagePath" class="card-img-top" style="max-height:420px; object-fit:cover;" />
+
+            <div class="card-body">
+                <p class="card-text">@p.Description</p>
+                <small class="text-muted">@p.CreatedAt</small>
+
+                <!--  ЛАЙКИ -->
+                <div class="mt-2">
+                    <b>Вподобання:</b> @likesCount
+                    @if (likesCount > 0)
+                    {
+                        <span class="ms-2">(@string.Join(", ", emojisGrouped))</span>
+                    }
+                </div>
+
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    if (myLike == null)
+                    {
+                        <form asp-action="Like" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@p.Id" />
+
+                            <select name="emoji" class="form-select d-inline" style="width:110px">
+                                <option value="❤️">❤️</option>
+                                <option value="👍">👍</option>
+                                <option value="😂">😂</option>
+                                <option value="🔥">🔥</option>
+                                <option value="😍">😍</option>
+                            </select>
+
+                            <button class="btn btn-outline-primary btn-sm ms-1" type="submit">
+                                Лайк
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <form asp-action="Unlike" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@p.Id" />
+                            <button class="btn btn-outline-danger btn-sm" type="submit">
+                                Прибрати мій лайк (@myLike.Emoji)
+                            </button>
+                        </form>
+                    }
+                }
+
+                @if (likesCount > 0)
+                {
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            Лайкнули:
+                            @string.Join(", ", p.Likes.Select(l => l.User?.Email ?? "user"))
+                        </small>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}

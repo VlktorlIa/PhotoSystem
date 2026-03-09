@@ -1,0 +1,48 @@
+﻿@model PhotoSystem.Models.ApplicationUser
+
+@{
+    ViewData["Title"] = "Profile";
+}
+
+<h2>@Model.UserName</h2>
+
+<p>
+    Followers: <b>@ViewBag.FollowersCount</b>
+</p>
+
+<p>
+    Following: <b>@ViewBag.FollowingCount</b>
+</p>
+
+@if (User.Identity.IsAuthenticated && User.Identity.Name != Model.UserName)
+{
+    <form asp-controller="Follow" asp-action="ToggleFollow" method="post">
+        <input type="hidden" name="userId" value="@Model.Id" />
+
+        @if (ViewBag.IsFollowing == true)
+        {
+            <button type="submit" class="btn btn-danger">
+                Unfollow
+            </button>
+        }
+        else
+        {
+            <button type="submit" class="btn btn-outline-primary">
+                Follow
+            </button>
+        }
+    </form>
+
+    <form asp-controller="Follow" asp-action="ToggleFollow" method="post">
+        <input type="hidden" name="userId" value="@Model.Id" />
+
+        @if (ViewBag.IsFollowing == true)
+        {
+            <button class="btn btn-danger">Unfollow</button>
+        }
+        else
+        {
+            <button class="btn btn-outline-primary">Follow</button>
+        }
+    </form>
+}

@@ -1,0 +1,25 @@
+﻿@{
+    ViewData["Title"] = "Опублікувати фото";
+}
+
+<h2>Опублікувати фото</h2>
+
+<div asp-validation-summary="All" class="text-danger"></div>
+
+<form method="post" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label class="form-label">Зображення</label>
+        <input type="file" name="image" class="form-control" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Опис</label>
+        <textarea name="description" class="form-control" rows="3"></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Опублікувати</button>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,26 @@
+﻿@model IEnumerable<PhotoSystem.Models.PhotoPost>
+
+@{
+    ViewData["Title"] = "Feed";
+}
+
+<h2>Стрічка новин</h2>
+
+@if (!Model.Any())
+{
+    <p>Ви ще не підписані ні на кого.</p>
+}
+else
+{
+    foreach (var post in Model)
+    {
+        <div class="card mb-3" style="width:400px">
+            <img src="@post.ImagePath" class="card-img-top" />
+
+            <div class="card-body">
+                <p>@post.Description</p>
+                <small>@post.CreatedAt.ToString("g")</small>
+            </div>
+        </div>
+    }
+}

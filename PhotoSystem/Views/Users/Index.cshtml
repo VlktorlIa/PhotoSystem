@@ -1,0 +1,38 @@
+﻿@model IEnumerable<PhotoSystem.Models.ApplicationUser>
+
+@{
+    ViewData["Title"] = "Користувачі";
+}
+
+<h2>Користувачі</h2>
+
+<table class="table table-bordered">
+    <tr>
+        <th>Email</th>
+        <th>Дії</th>
+    </tr>
+
+    @foreach (var user in Model)
+    {
+        <tr>
+            <td>@user.Email</td>
+            <td>
+
+                <a asp-controller="Photos"
+                   asp-action="UserPosts"
+                   asp-route-id="@user.Id"
+                   class="btn btn-primary btn-sm">
+                    Переглянути публікації
+                </a>
+
+                <a asp-controller="Follow"
+                   asp-action="FollowUser"
+                   asp-route-id="@user.Id"
+                   class="btn btn-success btn-sm">
+                    Підписатися
+                </a>
+
+            </td>
+        </tr>
+    }
+</table>

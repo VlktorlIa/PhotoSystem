@@ -1,0 +1,32 @@
+﻿@model IEnumerable<PhotoSystem.Models.PhotoPost>
+
+@{
+    ViewData["Title"] = "Видалені публікації";
+}
+
+<h2>Видалені публікації</h2>
+
+<p>
+    <a asp-action="MyPosts" class="btn btn-primary">← Назад до моїх</a>
+</p>
+
+@if (!Model.Any())
+{
+    <p>Видалених публікацій немає.</p>
+}
+else
+{
+    foreach (var p in Model)
+    {
+        <div class="card mb-3">
+            <img src="@p.ImagePath" class="card-img-top" style="max-height:420px; object-fit:cover;" />
+            <div class="card-body">
+                <p class="card-text">@p.Description</p>
+                <small class="text-muted">@p.CreatedAt</small>
+                <div class="mt-2">
+                    <a asp-action="Restore" asp-route-id="@p.Id" class="btn btn-success">Відновити</a>
+                </div>
+            </div>
+        </div>
+    }
+}

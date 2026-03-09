@@ -1,0 +1,23 @@
+﻿@model IEnumerable<PhotoSystem.Models.PhotoPost>
+
+<h2>Стрічка новин</h2>
+
+@if (!Model.Any())
+{
+    <p>Ви ще не підписані ні на кого 😢</p>
+}
+else
+{
+    foreach (var p in Model)
+    {
+        <div class="card mb-3">
+            <img src="@p.ImagePath" class="card-img-top"
+                 style="max-height:420px; object-fit:cover;" />
+
+            <div class="card-body">
+                <p>@p.Description</p>
+                <small class="text-muted">@p.CreatedAt</small>
+            </div>
+        </div>
+    }
+}

@@ -1,0 +1,36 @@
+﻿@model IEnumerable<PhotoSystem.Models.Follow>
+
+@{
+    ViewData["Title"] = "Підписники";
+}
+
+<h2>Підписники</h2>
+
+@if (!Model.Any())
+{
+    <p>Ще немає підписників</p>
+}
+else
+{
+    <table class="table">
+        <tr>
+            <th>Email</th>
+            <th>Профіль</th>
+        </tr>
+
+        @foreach (var f in Model)
+        {
+            <tr>
+                <td>@f.Follower.Email</td>
+                <td>
+                    <a asp-controller="Users"
+                       asp-action="Profile"
+                       asp-route-id="@f.Follower.Id"
+                       class="btn btn-primary btn-sm">
+                        Переглянути
+                    </a>
+                </td>
+            </tr>
+        }
+    </table>
+}
