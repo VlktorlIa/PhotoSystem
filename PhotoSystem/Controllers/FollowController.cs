@@ -15,77 +15,68 @@ namespace PhotoSystem.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public FollowController(ApplicationDbContext context,
-                                UserManager<ApplicationUser> userManager)
+        public FollowController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
             _userManager = userManager;
         }
 
-        // Підписатися
-        public async Task<IActionResult> FollowUser(string id)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleFollow(string targetUserId)
         {
             var currentUserId = _userManager.GetUserId(User);
 
-            if (currentUserId == id)
-                return RedirectToAction("Profile", "Users", new { id });
+            // не можна підписатися на самого себе
+            if (currentUserId == targetUserId) return BadRequest("Ви не можете підписатися на себе.");
 
-            bool alreadyFollowing = await _context.Follows
-                .AnyAsync(f => f.FollowerId == currentUserId &&
-                               f.FollowingId == id);
+            var existingFollow = await _context.Follows
+                .FirstOrDefaultAsync(f => f.FollowerId == currentUserId && f.FollowingId == targetUserId);
 
-            if (!alreadyFollowing)
+            if (existingFollow != null)
             {
-                var follow = new Follow
+                // Відписка
+                _context.Follows.Remove(existingFollow);
+            }
+            else
+            {
+                // Підписка
+                _context.Follows.Add(new Follow
                 {
-                    FollowerId = currentUserId,
-                    FollowingId = id
-                };
-
-                _context.Follows.Add(follow);
-                await _context.SaveChangesAsync();
+                    FollowerId = currentUserId!,
+                    FollowingId = targetUserId
+                });
             }
 
-            return RedirectToAction("Profile", "Users", new { id });
+            await _context.SaveChangesAsync();
+            return Redirect(Request.Headers["Referer"].ToString());
         }
 
-        //  Відписатися
-        public async Task<IActionResult> UnfollowUser(string id)
+        // Сторінка Підписники
+        public async Task<IActionResult> Followers(string userId)
         {
-            var currentUserId = _userManager.GetUserId(User);
-
-            var follow = await _context.Follows
-                .FirstOrDefaultAsync(f => f.FollowerId == currentUserId &&
-                                          f.FollowingId == id);
-
-            if (follow != null)
-            {
-                _context.Follows.Remove(follow);
-                await _context.SaveChangesAsync();
-            }
-
-            return RedirectToAction("Profile", "Users", new { id });
-        }
-
-        //  Followers list
-        public async Task<IActionResult> Followers(string id)
-        {
+            var user = await _userManager.FindByIdAsync(userId);
             var followers = await _context.Follows
-                .Where(f => f.FollowingId == id)
+                .Where(f => f.FollowingId == userId)
                 .Include(f => f.Follower)
+                .Select(f => f.Follower)
                 .ToListAsync();
 
+            ViewBag.UserName = user?.Email;
             return View(followers);
         }
 
-        // Following list
-        public async Task<IActionResult> Following(string id)
+        // Сторінка Підписки
+        public async Task<IActionResult> Following(string userId)
         {
+            var user = await _userManager.FindByIdAsync(userId);
             var following = await _context.Follows
-                .Where(f => f.FollowerId == id)
+                .Where(f => f.FollowerId == userId)
                 .Include(f => f.Following)
+                .Select(f => f.Following)
                 .ToListAsync();
 
+            ViewBag.UserName = user?.Email;
             return View(following);
         }
     }

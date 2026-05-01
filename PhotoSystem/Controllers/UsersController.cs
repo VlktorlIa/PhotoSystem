@@ -17,50 +17,31 @@ namespace PhotoSystem.Controllers
             _context = context;
         }
 
-        // Список користувачів
-        public IActionResult Index()
+        // Список усіх користувачів
+        public async Task<IActionResult> Index()
         {
-            var users = _userManager.Users.ToList();
+            var users = await _userManager.Users.ToListAsync();
             return View(users);
         }
 
-        // Профіль користувача
+        // Профіль конкретного користувача
         public async Task<IActionResult> Profile(string id)
         {
-            if (id == null)
+            if (string.IsNullOrEmpty(id))
             {
                 return NotFound();
             }
 
-            var user = await _userManager.Users
-                .FirstOrDefaultAsync(u => u.Id == id);
+            // Шукає користувача за ID
+            var user = await _userManager.FindByIdAsync(id);
 
             if (user == null)
             {
                 return NotFound();
             }
 
-            // кількість підписників
-            var followersCount = await _context.Follows
-                .CountAsync(f => f.FollowingId == id);
-
-            // кількість підписок
-            var followingCount = await _context.Follows
-                .CountAsync(f => f.FollowerId == id);
-
-            ViewBag.FollowersCount = followersCount;
-            ViewBag.FollowingCount = followingCount;
-
-            var currentUser = await _userManager.GetUserAsync(User);
-
-            if (currentUser != null)
-            {
-                var isFollowing = await _context.Follows
-                    .AnyAsync(f => f.FollowerId == currentUser.Id && f.FollowingId == id);
-
-                ViewBag.IsFollowing = isFollowing;
-            }
-
+            // Ми передаємо лише об'єкт user. 
+            // Лічильники та стан кнопки підписки підтягуються у View через @inject Context.
             return View(user);
         }
     }

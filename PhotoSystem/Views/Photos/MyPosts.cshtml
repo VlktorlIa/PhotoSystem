@@ -1,7 +1,8 @@
 ﻿@model IEnumerable<PhotoSystem.Models.PhotoPost>
-
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
 @inject UserManager<PhotoSystem.Models.ApplicationUser> UserManager
+@inject PhotoSystem.Data.ApplicationDbContext Context
 
 @{
     ViewData["Title"] = "Мої публікації";
@@ -23,23 +24,47 @@ else
 {
     foreach (var p in Model)
     {
+        // ПЕРЕВІРКА: чи є цей пост результатом Forward або Reply
+        var interaction = Context.PostInteractions
+            .Include(i => i.OriginalAuthor)
+            .FirstOrDefault(i => i.ReplyPostId == p.Id);
+
         var likesCount = p.Likes?.Count ?? 0;
         var myLike = p.Likes?.FirstOrDefault(l => l.UserId == currentUserId);
         var emojisGrouped = p.Likes?
             .GroupBy(l => l.Emoji)
             .Select(g => $"{g.Key} {g.Count()}");
 
-        <div class="card mb-3">
-            <img src="@p.ImagePath" class="card-img-top" style="max-height:420px; object-fit:cover;" />
+        <div class="card mb-3 shadow-sm border-0 rounded-3 overflow-hidden">
+            
+            @* ПЛАШКА ВЗАЄМОДІЇ (Розрізняє Forward та Reply) *@
+            @if (interaction != null)
+            {
+                var isReply = interaction.Type == PhotoSystem.Models.InteractionType.Reply;
+                var alertClass = isReply ? "bg-success bg-opacity-10 text-success" : "bg-info bg-opacity-10 text-info";
+                var icon = isReply ? "💬 Відповідь для:" : "✈️ Переслано від:";
+
+                <div class="p-2 px-3 border-bottom d-flex align-items-center justify-content-between @alertClass">
+                    <small class="fw-bold">
+                        @icon @interaction.OriginalAuthor?.Email
+                    </small>
+                    <a asp-controller="Photos" asp-action="Details" asp-route-id="@interaction.OriginalPostId"
+                           class="btn btn-sm btn-link text-decoration-none p-0 fw-bold" style="font-size: 0.75rem;">
+                        Оригінал →
+                    </a>
+                </div>
+            }
+
+            <img src="@p.ImagePath" class="card-img-top" style="max-height:420px; object-fit:contain; background-color: #f8f9fa;" />
 
             <div class="card-body">
-                <p class="card-text">@p.Description</p>
-                <small class="text-muted">@p.CreatedAt</small>
+                @* ВІДОБРАЖЕННЯ ОПИСУ (Твій коментар/опис) *@
+                <p class="card-text fw-bold mb-1">@p.Description</p>
+                <small class="text-muted d-block mb-2">@p.CreatedAt.ToString("g")</small>
 
-                <!--  ЛАЙКИ -->
-                <div class="mt-2">
+                <div class="mt-2 border-top pt-2">
                     <b>Вподобання:</b> @likesCount
-                    @if (likesCount > 0)
+                    @if (likesCount > 0 && emojisGrouped != null)
                     {
                         <span class="ms-2">(@string.Join(", ", emojisGrouped))</span>
                     }
@@ -47,51 +72,47 @@ else
 
                 @if (User.Identity?.IsAuthenticated == true)
                 {
-                    if (myLike == null)
-                    {
-                        <form asp-action="Like" method="post" class="d-inline">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@p.Id" />
-
-                            <select name="emoji" class="form-select d-inline" style="width:110px">
-                                <option value="❤️">❤️</option>
-                                <option value="👍">👍</option>
-                                <option value="😂">😂</option>
-                                <option value="🔥">🔥</option>
-                                <option value="😍">😍</option>
-                            </select>
-
-                            <button class="btn btn-outline-primary btn-sm ms-1" type="submit">
-                                Лайк
-                            </button>
-                        </form>
-                    }
-                    else
-                    {
-                        <form asp-action="Unlike" method="post" class="d-inline">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@p.Id" />
-                            <button class="btn btn-outline-danger btn-sm" type="submit">
-                                Прибрати мій лайк (@myLike.Emoji)
-                            </button>
-                        </form>
-                    }
+                    <div class="mt-2">
+                        @if (myLike == null)
+                        {
+                            <form asp-action="Like" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@p.Id" />
+                                <select name="emoji" class="form-select form-select-sm d-inline" style="width:80px">
+                                    <option value="❤️">❤️</option>
+                                    <option value="👍">👍</option>
+                                    <option value="😂">😂</option>
+                                    <option value="🔥">🔥</option>
+                                    <option value="😍">😍</option>
+                                </select>
+                                <button class="btn btn-outline-primary btn-sm ms-1" type="submit">Лайк</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <form asp-action="Unlike" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@p.Id" />
+                                <button class="btn btn-outline-danger btn-sm" type="submit">
+                                    Прибрати мій лайк (@myLike.Emoji)
+                                </button>
+                            </form>
+                        }
+                    </div>
                 }
 
                 @if (likesCount > 0)
                 {
                     <div class="mt-2">
-                        <small class="text-muted">
-                            Лайкнули:
-                            @string.Join(", ", p.Likes.Select(l => l.User?.Email ?? "user"))
+                        <small class="text-muted" style="font-size: 0.8rem;">
+                            Лайкнули: @string.Join(", ", p.Likes.Select(l => l.User?.Email ?? "user"))
                         </small>
                     </div>
                 }
 
-                <!--  Видалення -->
-                <div class="mt-3">
-                    <a asp-action="Delete" asp-route-id="@p.Id" class="btn btn-danger">
-                        Видалити
+                <div class="mt-3 pt-2 border-top">
+                    <a asp-action="Delete" asp-route-id="@p.Id" class="btn btn-sm btn-danger" onclick="return confirm('Ви впевнені?')">
+                        Видалити публікацію
                     </a>
                 </div>
             </div>

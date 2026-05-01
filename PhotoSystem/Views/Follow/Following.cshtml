@@ -1,36 +1,37 @@
-﻿@model IEnumerable<PhotoSystem.Models.Follow>
+﻿@model IEnumerable<PhotoSystem.Models.ApplicationUser>
 
 @{
-    ViewData["Title"] = "Підписки";
+    ViewData["Title"] = "Підписки " + ViewBag.UserName;
 }
 
-<h2>Підписки</h2>
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Users" asp-action="Index">Користувачі</a></li>
+            <li class="breadcrumb-item active">Підписки @ViewBag.UserName</li>
+        </ol>
+    </nav>
 
-@if (!Model.Any())
-{
-    <p>Ви ще ні на кого не підписані</p>
-}
-else
-{
-    <table class="table">
-        <tr>
-            <th>Email</th>
-            <th>Профіль</th>
-        </tr>
+    <h2 class="mb-4">@ViewBag.UserName підписаний на (@Model.Count()):</h2>
 
-        @foreach (var f in Model)
+    <div class="list-group shadow-sm">
+        @if (!Model.Any())
         {
-            <tr>
-                <td>@f.Following.Email</td>
-                <td>
-                    <a asp-controller="Users"
-                       asp-action="Profile"
-                       asp-route-id="@f.Following.Id"
-                       class="btn btn-primary btn-sm">
-                        Переглянути
-                    </a>
-                </td>
-            </tr>
+            <div class="list-group-item text-center py-4 text-muted">
+                Цей користувач ще ні на кого не підписався.
+            </div>
         }
-    </table>
-}
+        @foreach (var user in Model)
+        {
+            <a asp-controller="Users" asp-action="Profile" asp-route-id="@user.Id"
+               class="list-group-item list-group-item-action d-flex align-items-center justify-content-between p-3">
+                <div class="d-flex align-items-center">
+                    <img src="https://ui-avatars.com/api/?name=@user.Email&background=random&size=45"
+                         class="rounded-circle me-3" alt="Avatar">
+                    <span class="fw-bold">@user.Email</span>
+                </div>
+                <span class="btn btn-sm btn-outline-primary">Переглянути профіль</span>
+            </a>
+        }
+    </div>
+</div>

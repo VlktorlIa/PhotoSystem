@@ -1,26 +1,260 @@
 ﻿@model IEnumerable<PhotoSystem.Models.PhotoPost>
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<PhotoSystem.Models.ApplicationUser> UserManager
+@inject PhotoSystem.Data.ApplicationDbContext Context
+@using Microsoft.EntityFrameworkCore
 
 @{
-    ViewData["Title"] = "Feed";
+    ViewData["Title"] = "Стрічка новин";
+    var currentUserId = UserManager.GetUserId(User);
 }
 
-<h2>Стрічка новин</h2>
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <h2 class="mb-4 text-center fw-bold">Ваша стрічка новин</h2>
 
-@if (!Model.Any())
-{
-    <p>Ви ще не підписані ні на кого.</p>
-}
-else
-{
-    foreach (var post in Model)
-    {
-        <div class="card mb-3" style="width:400px">
-            <img src="@post.ImagePath" class="card-img-top" />
+            @* Блок Story Bar відображається лише для авторизованих користувачів *@
+            @if (User.Identity.IsAuthenticated)
+            {
+                <div class="card border-0 shadow-sm mb-4 bg-white rounded-3">
+                    <div class="card-body p-2">
+                        <div class="d-flex overflow-auto gap-3 py-2 px-1" id="story-bar" style="scrollbar-width: none;">
+                            <div class="text-center" style="min-width: 70px; cursor: pointer;" onclick="location.href='@Url.Action("Create", "Stories")'">
+                                <div class="rounded-circle border border-2 border-primary p-1 d-inline-block" style="width: 66px; height: 66px;">
+                                    <div class="bg-light rounded-circle w-100 h-100 d-flex align-items-center justify-content-center">
+                                        <span class="fs-2 text-primary">+</span>
+                                    </div>
+                                </div>
+                                <div class="small text-muted mt-1">Ваша історія</div>
+                            </div>
+                            <div id="active-stories-list" class="d-flex gap-3"></div>
+                        </div>
+                    </div>
+                </div>
+            }
 
-            <div class="card-body">
-                <p>@post.Description</p>
-                <small>@post.CreatedAt.ToString("g")</small>
+            @* Контейнер постів *@
+            <div id="posts-container">
+                @if (!Model.Any())
+                {
+                    <div class="alert alert-light border text-center p-5 shadow-sm" id="empty-feed-msg">
+                        <h4 class="text-muted">Ви ще ні на кого не підписані</h4>
+                        <p>Підпишіться на цікавих користувачів, щоб бачити їхні фото тут.</p>
+                        <a asp-controller="Users" asp-action="Index" class="btn btn-primary px-4">Знайти друзів</a>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var item in Model)
+                    {
+                        @await Html.PartialAsync("_PostCard", item)
+                    }
+                }
+            </div>
+
+            <div id="loader" class="text-center my-4" style="display: none;">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="text-muted small">Завантаження...</p>
+            </div>
+
+            <div id="no-more-posts" class="text-center my-5 text-muted" style="display: none;">
+                <hr>
+                <p>✨ Ви переглянули всі публікації на сьогодні!</p>
             </div>
         </div>
-    }
+    </div>
+</div>
+
+@* FULLSCREEN STORY VIEWER *@
+<div id="story-viewer" class="fixed-top w-100 h-100 bg-dark d-none" style="z-index: 9999;">
+    <div id="story-progress" class="position-absolute top-0 w-100 d-flex gap-1 p-2" style="z-index: 10;"></div>
+    
+    <div class="position-absolute top-0 w-100 d-flex align-items-center p-3 mt-3 text-white" style="z-index: 10;">
+        <img id="viewer-avatar" src="" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
+        <div>
+            <span id="viewer-username" class="fw-bold d-block"></span>
+            <small id="viewer-time" class="opacity-75"></small>
+        </div>
+        <button type="button" class="btn-close btn-close-white ms-auto" onclick="closeStoryViewer()"></button>
+    </div>
+
+    <div class="w-100 h-100 d-flex align-items-center justify-content-center">
+        <img id="story-img" src="" class="img-fluid d-none" style="max-height: 100vh;">
+        <video id="story-video" class="d-none" style="max-height: 100vh; width: 100%;" muted playsinline></video>
+        
+        <div class="position-absolute h-100 start-0 w-25" style="z-index: 11; cursor: pointer;" onclick="prevStory()"></div>
+        <div class="position-absolute h-100 end-0 w-25" style="z-index: 11; cursor: pointer;" onclick="nextStory()"></div>
+    </div>
+
+    <div id="story-caption" class="position-absolute bottom-0 w-100 text-center p-5 text-white bg-gradient-dark" style="z-index: 10;"></div>
+</div>
+
+<style>
+    .bg-gradient-dark { background: linear-gradient(transparent, rgba(0,0,0,0.9)); }
+    .progress-segment { height: 3px; background: rgba(255,255,255,0.3); flex-grow: 1; border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: white; width: 0%; transition: width linear; }
+    #story-video, #story-img { object-fit: contain; background-color: #000; }
+</style>
+
+@section Scripts {
+    <script>
+        let storiesData = []; 
+        let currentStoryIdx = 0;
+        let storyTimer;
+        const STORY_DURATION = 5000;
+
+        let currentPage = 0; 
+        let isLoading = false;
+        let hasMore = true;
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // Завантажує історії лише якщо користувач авторизований
+            if ("@User.Identity.IsAuthenticated" === "True") {
+                loadStories();
+            }
+        });
+
+        // Функція для розрахунку часу (н-р, "2 год. тому")
+        function timeAgo(dateString) {
+            const now = new Date();
+            const past = new Date(dateString);
+            const diffInSeconds = Math.floor((now - past) / 1000);
+            if (diffInSeconds < 60) return 'щойно';
+            if (diffInSeconds < 3600) return Math.floor(diffInSeconds / 60) + ' хв.';
+            if (diffInSeconds < 86400) return Math.floor(diffInSeconds / 3600) + ' год. тому';
+            return Math.floor(diffInSeconds / 86400) + ' дн. тому';
+        }
+
+        async function loadStories() {
+            try {
+                const response = await fetch('/Stories/GetFeed');
+                const stories = await response.json();
+                const container = document.getElementById('active-stories-list');
+                if (!container) return;
+                
+                container.innerHTML = ''; 
+                stories.forEach(item => {
+                    const ringClass = item.hasUnviewed ? 'border-primary' : 'border-secondary opacity-50';
+                    const displayName = item.authorEmail.split('@@')[0]; 
+
+                    const storyHtml = `
+                        <div class="text-center" style="min-width: 75px; cursor: pointer;" onclick="openStoryViewer('${item.authorId}')">
+                            <div class="rounded-circle border border-2 ${ringClass} p-1 d-inline-block" style="width: 66px; height: 66px;">
+                                <img src="https://ui-avatars.com/api/?name=${item.authorEmail}&background=random&size=100" 
+                                     class="rounded-circle w-100 h-100 object-fit-cover">
+                            </div>
+                            <small class="text-dark d-block mt-1 text-truncate" style="max-width: 70px;">${displayName}</small>
+                        </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', storyHtml);
+                });
+            } catch (error) { console.error("Помилка завантаження сторіз:", error); }
+        }
+
+        async function openStoryViewer(authorId) {
+            try {
+                const response = await fetch(`/api/stories/user/${authorId}`);
+                storiesData = await response.json();
+                if (storiesData.length === 0) return;
+                currentStoryIdx = 0;
+                document.getElementById('story-viewer').classList.remove('d-none');
+                renderStory();
+            } catch (e) { console.error("Помилка API:", e); }
+        }
+
+        function renderStory() {
+            clearTimeout(storyTimer);
+            const story = storiesData[currentStoryIdx];
+            
+            const progressCont = document.getElementById('story-progress');
+            progressCont.innerHTML = storiesData.map((_, i) => `
+                <div class="progress-segment">
+                    <div class="progress-fill" id="fill-${i}" style="width: ${i < currentStoryIdx ? '100%' : '0%'}"></div>
+                </div>
+            `).join('');
+
+            document.getElementById('viewer-username').innerText = story.authorName;
+            document.getElementById('viewer-avatar').src = `https://ui-avatars.com/api/?name=${story.authorName}&size=100`;
+            document.getElementById('viewer-time').innerText = timeAgo(story.createdAt);
+            document.getElementById('story-caption').innerText = story.caption || "";
+
+            const imgTag = document.getElementById('story-img');
+            const videoTag = document.getElementById('story-video');
+
+            if (story.type === 0) { 
+                imgTag.src = story.mediaUrl;
+                imgTag.classList.remove('d-none');
+                videoTag.classList.add('d-none');
+                startProgress(STORY_DURATION);
+            } else { 
+                videoTag.src = story.mediaUrl;
+                videoTag.classList.remove('d-none');
+                imgTag.classList.add('d-none');
+                videoTag.play();
+                videoTag.onloadedmetadata = () => startProgress(videoTag.duration * 1000);
+            }
+
+            fetch(`/api/stories/${story.id}/view`, { method: 'POST' });
+        }
+
+        function startProgress(duration) {
+            const fill = document.getElementById(`fill-${currentStoryIdx}`);
+            setTimeout(() => {
+                fill.style.transition = `width ${duration}ms linear`;
+                fill.style.width = '100%';
+            }, 50);
+            storyTimer = setTimeout(nextStory, duration);
+        }
+
+        function nextStory() {
+            if (currentStoryIdx < storiesData.length - 1) {
+                currentStoryIdx++;
+                renderStory();
+            } else {
+                closeStoryViewer();
+            }
+        }
+
+        function prevStory() {
+            if (currentStoryIdx > 0) {
+                currentStoryIdx--;
+                renderStory();
+            }
+        }
+
+        function closeStoryViewer() {
+            document.getElementById('story-viewer').classList.add('d-none');
+            document.getElementById('story-video').pause();
+            clearTimeout(storyTimer);
+            loadStories();
+        }
+
+        window.onscroll = function() {
+            if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 600) {
+                if (!isLoading && hasMore) loadMorePosts();
+            }
+        };
+
+        async function loadMorePosts() {
+            isLoading = true;
+            document.getElementById('loader').style.display = 'block';
+            currentPage++;
+            try {
+                const response = await fetch(`/Photos/GetIncrementalFeed?page=${currentPage}&pageSize=5`);
+                if (response.status === 204 || !response.ok) { hasMore = false; } 
+                else {
+                    const html = await response.text();
+                    if (html.trim().length > 0) {
+                        document.getElementById('posts-container').insertAdjacentHTML('beforeend', html);
+                    } else { hasMore = false; }
+                }
+                if (!hasMore) document.getElementById('no-more-posts').style.display = 'block';
+            } catch (e) { hasMore = false; } 
+            finally { isLoading = false; document.getElementById('loader').style.display = 'none'; }
+        }
+
+        function openForwardModal(pId) { document.getElementById('forwardPostId').value = pId; new bootstrap.Modal(document.getElementById('forwardModal')).show(); }
+        function openReplyModal(pId) { document.getElementById('replyPostId').value = pId; new bootstrap.Modal(document.getElementById('replyModal')).show(); }
+    </script>
 }

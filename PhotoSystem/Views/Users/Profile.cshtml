@@ -1,48 +1,96 @@
 ﻿@model PhotoSystem.Models.ApplicationUser
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject PhotoSystem.Data.ApplicationDbContext Context
 
 @{
-    ViewData["Title"] = "Profile";
+    ViewData["Title"] = "Профіль " + Model.Email;
+    var currentUserId = UserManager.GetUserId(User);
+
+    // Отримує актуальні дані для лічильників
+    var followersCount = Context.Follows.Count(f => f.FollowingId == Model.Id);
+    var followingCount = Context.Follows.Count(f => f.FollowerId == Model.Id);
+    var isFollowing = Context.Follows.Any(f => f.FollowerId == currentUserId && f.FollowingId == Model.Id);
+
+    // Завантажує останні пости користувача для відображення в профілі
+    var userPosts = Context.PhotoPosts
+        .Where(p => p.UserId == Model.Id && !p.IsDeleted)
+        .OrderByDescending(p => p.CreatedAt)
+        .Take(6) // Покаже останні 6 фото
+        .ToList();
 }
 
-<h2>@Model.UserName</h2>
+<div class="container mt-5">
+    @* Картка профілю *@
+    <div class="card shadow-sm border-0 p-4 mb-5">
+        <div class="row align-items-center text-center text-md-start">
+            <div class="col-md-3 text-center">
+                @* Генерація аватара за іменем користувача *@
+                <img src="https://ui-avatars.com/api/?name=@Model.Email&background=random&size=150"
+                     class="rounded-circle shadow-sm mb-3 mb-md-0" alt="Avatar">
+            </div>
+            <div class="col-md-9">
+                <div class="d-flex flex-column flex-md-row align-items-center gap-3">
+                    <h2 class="mb-0">@Model.Email</h2>
 
-<p>
-    Followers: <b>@ViewBag.FollowersCount</b>
-</p>
+                    @if (currentUserId != Model.Id)
+                    {
+                        <form asp-controller="Follow" asp-action="ToggleFollow" method="post" class="m-0">
+                            <input type="hidden" name="targetUserId" value="@Model.Id" />
+                            <button type="submit" class="btn @(isFollowing ? "btn-danger" : "btn-outline-success") shadow-sm">
+                                @(isFollowing ? "Відписатися" : "Підписатися")
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Це ваш профіль</span>
+                    }
+                </div>
 
-<p>
-    Following: <b>@ViewBag.FollowingCount</b>
-</p>
+                <div class="d-flex justify-content-center justify-content-md-start gap-5 mt-4">
+                    <a asp-controller="Follow" asp-action="Followers" asp-route-userId="@Model.Id" class="text-decoration-none text-dark text-center">
+                        <h4 class="mb-0">@followersCount</h4>
+                        <span class="text-muted">Підписників</span>
+                    </a>
+                    <a asp-controller="Follow" asp-action="Following" asp-route-userId="@Model.Id" class="text-decoration-none text-dark text-center">
+                        <h4 class="mb-0">@followingCount</h4>
+                        <span class="text-muted">Підписок</span>
+                    </a>
+                    <div class="text-center">
+                        <h4 class="mb-0">@Context.PhotoPosts.Count(p => p.UserId == Model.Id && !p.IsDeleted)</h4>
+                        <span class="text-muted">Публікацій</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-@if (User.Identity.IsAuthenticated && User.Identity.Name != Model.UserName)
-{
-    <form asp-controller="Follow" asp-action="ToggleFollow" method="post">
-        <input type="hidden" name="userId" value="@Model.Id" />
+    @* Блок з постами користувача *@
+    <div class="posts-section">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="fw-bold">Останні публікації</h3>
+            <a asp-controller="Photos" asp-action="UserPosts" asp-route-id="@Model.Id" class="btn btn-sm btn-link text-decoration-none">Переглянути всі</a>
+        </div>
 
-        @if (ViewBag.IsFollowing == true)
+        @if (!userPosts.Any())
         {
-            <button type="submit" class="btn btn-danger">
-                Unfollow
-            </button>
+            <div class="text-center py-5 border rounded bg-light">
+                <p class="text-muted">Користувач ще не додав жодної фотографії.</p>
+            </div>
         }
         else
         {
-            <button type="submit" class="btn btn-outline-primary">
-                Follow
-            </button>
+            <div class="row g-3">
+                @foreach (var post in userPosts)
+                {
+                    <div class="col-6 col-md-4">
+                        <div class="card h-100 border-0 shadow-sm overflow-hidden">
+                            <img src="@post.ImagePath" class="card-img-top" alt="Post" style="height: 200px; object-fit: cover;">
+                        </div>
+                    </div>
+                }
+            </div>
         }
-    </form>
-
-    <form asp-controller="Follow" asp-action="ToggleFollow" method="post">
-        <input type="hidden" name="userId" value="@Model.Id" />
-
-        @if (ViewBag.IsFollowing == true)
-        {
-            <button class="btn btn-danger">Unfollow</button>
-        }
-        else
-        {
-            <button class="btn btn-outline-primary">Follow</button>
-        }
-    </form>
-}
+    </div>
+</div>

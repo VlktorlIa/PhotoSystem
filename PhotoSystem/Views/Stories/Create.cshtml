@@ -1,0 +1,68 @@
+﻿@model PhotoSystem.Models.StoryCreateViewModel
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3 text-center">
+                    <h4 class="mb-0 fw-bold">Створення історії</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form asp-action="Create" method="post" enctype="multipart/form-data">
+                        <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+
+                        <div class="mb-4 text-center">
+                            <div id="preview-container" class="rounded-3 bg-light d-flex align-items-center justify-content-center border" style="height: 350px; overflow: hidden; display: none !important;">
+                                <img id="img-preview" class="img-fluid" style="display: none;">
+                                <video id="video-preview" class="w-100" controls style="display: none;"></video>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Виберіть фото або відео</label>
+                            <input asp-for="MediaFile" type="file" class="form-control" id="file-input" accept="image/*,video/*">
+                                <span asp-validation-for="MediaFile" class="text-danger small"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Підпис (необов'язково)</label>
+                                <textarea asp-for="Caption" class="form-control" rows="2" placeholder="Додайте короткий опис..."></textarea>
+                                <span asp-validation-for="Caption" class="text-danger small"></span>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-lg">Опублікувати</button>
+                                <a asp-controller="Feed" asp-action="Index" class="btn btn-link text-muted">Скасувати</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @section Scripts {
+        <script>
+            // Скрипт для попереднього перегляду файлу
+            document.getElementById('file-input').onchange = function (evt) {
+                const [file] = this.files;
+                if (file) {
+                    const container = document.getElementById('preview-container');
+                    const img = document.getElementById('img-preview');
+                    const video = document.getElementById('video-preview');
+                
+                    container.style.setProperty('display', 'flex', 'important');
+
+                    if (file.type.startsWith('image/')) {
+                        img.src = URL.createObjectURL(file);
+                        img.style.display = 'block';
+                        video.style.display = 'none';
+                    } else {
+                        video.src = URL.createObjectURL(file);
+                        video.style.display = 'block';
+                        img.style.display = 'none';
+                    }
+                }
+            }
+        </script>
+    }

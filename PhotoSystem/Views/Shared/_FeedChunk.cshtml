@@ -1,0 +1,6 @@
+﻿@model IEnumerable<PhotoSystem.Models.PhotoPost>
+
+@foreach (var post in Model)
+{
+    @await Html.PartialAsync("_PostCard", post)
+}

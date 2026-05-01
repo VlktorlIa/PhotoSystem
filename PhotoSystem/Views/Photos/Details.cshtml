@@ -1,0 +1,147 @@
+﻿@model PhotoSystem.Models.PhotoPost
+@{
+    ViewData["Title"] = "Деталі публікації";
+    // Отримує коментарі з ViewBag
+    var comments = ViewBag.Comments as List<PhotoSystem.Models.Comment>;
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 rounded-3">
+                @* Шапка з автором *@
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex align-items-center">
+                        <img src="https://ui-avatars.com/api/?name=@Model.User?.Email&background=random&size=40" class="rounded-circle me-3">
+                        <span class="fw-bold">@Model.User?.Email</span>
+                    </div>
+                </div>
+
+                @* Зображення *@
+                <div class="bg-light text-center">
+                    <img src="@Model.ImagePath" class="img-fluid w-100" style="max-height: 600px; object-fit: contain;">
+                </div>
+
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="card-text fw-bold mb-0">@Model.Description</p>
+                            <small class="text-muted">Опубліковано: @Model.CreatedAt.ToString("g")</small>
+                        </div>
+                        @* КНОПКА ПЕРЕСЛАТИ (Forward) *@
+                        <button class="btn btn-outline-primary btn-sm" onclick="openForwardModal(@Model.Id)">
+                            ↪ Переслати
+                        </button>
+                    </div>
+                    
+                    <hr />
+
+                    @* СЕКЦІЯ КОМЕНТАРІВ *@
+                    <h6>Коментарі (@(comments?.Count ?? 0))</h6>
+                    @if (comments != null && comments.Any())
+                    {
+                        @foreach (var comment in comments)
+                        {
+                            <div class="mb-2 p-2 bg-light rounded shadow-sm">
+                                <div class="d-flex justify-content-between">
+                                    <strong>@comment.Author?.Email</strong>
+                                    @* КНОПКА ВІДПОВІСТИ (Reply) *@
+                                    <button class="btn btn-sm btn-link text-decoration-none p-0" onclick="openReplyModal(@comment.Id)">Відповісти</button>
+                                </div>
+                                <span>@comment.Content</span>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted small">Коментарів поки немає.</p>
+                    }
+
+                    <div class="mt-4">
+                        <a href="javascript:history.back()" class="btn btn-sm btn-secondary">← Назад</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* --- МОДАЛЬНЕ ВІКНО: REPLY (ВІДПОВІСТИ) --- *@
+<div class="modal fade" id="replyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Відповісти на коментар</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form asp-controller="Comments" asp-action="Create" method="post">
+                <div class="modal-body">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="postId" value="@Model.Id" />
+                    <input type="hidden" name="parentId" id="replyPostId" value="" />
+                    <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
+                    
+                    <textarea name="content" class="form-control" rows="3" placeholder="Напишіть відповідь..." required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Відповісти</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@* --- МОДАЛЬНЕ ВІКНО: FORWARD (ПЕРЕСЛАТИ) --- *@
+<div class="modal fade" id="forwardModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Переслати публікацію</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p>Оберіть куди переслати (функціонал у розробці)</p>
+                <div class="border p-2 mb-3 bg-light">
+                    <img src="@Model.ImagePath" style="width: 50px; height: 50px; object-fit: cover;">
+                    <small>@Model.Description</small>
+                </div>
+                <input type="hidden" id="forwardPostId" value="" />
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary w-100 disabled">Надіслати у чат</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openReplyModal(pId) {
+            console.log("Спроба відкрити модалку для ID:", pId);
+            
+            // Шукаємо елемент
+            var input = document.getElementById('replyPostId');
+            var modalElement = document.getElementById('replyModal');
+
+            if (input && modalElement) {
+                input.value = pId;
+                var myModal = new bootstrap.Modal(modalElement);
+                myModal.show();
+            } else {
+                console.error("Помилка: елементи replyPostId або replyModal не знайдені на сторінці!");
+                alert("Помилка завантаження форми. Спробуйте оновити сторінку (Ctrl+F5).");
+            }
+        }
+
+        function openForwardModal(postId) {
+            var input = document.getElementById('forwardPostId');
+            var modalElement = document.getElementById('forwardModal');
+
+            if (input && modalElement) {
+                input.value = postId;
+                var myModal = new bootstrap.Modal(modalElement);
+                myModal.show();
+            }
+        }
+    </script>
+}

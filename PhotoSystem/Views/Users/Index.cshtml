@@ -1,38 +1,63 @@
 ﻿@model IEnumerable<PhotoSystem.Models.ApplicationUser>
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject PhotoSystem.Data.ApplicationDbContext Context
 
 @{
     ViewData["Title"] = "Користувачі";
+    var currentUserId = UserManager.GetUserId(User);
 }
 
-<h2>Користувачі</h2>
+<div class="container mt-4">
+    <h2 class="mb-4">Список користувачів</h2>
 
-<table class="table table-bordered">
-    <tr>
-        <th>Email</th>
-        <th>Дії</th>
-    </tr>
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Користувач</th>
+                <th class="text-end">Дії</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in Model)
+            {
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                         
+                            <img src="https://ui-avatars.com/api/?name=@user.Email&background=random&size=40"
+                                 class="rounded-circle me-3" alt="Avatar">
+                            <div>
+                                <strong>@user.Email</strong>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="d-flex justify-content-end gap-2">
+                            @* Кнопка Профілю *@
+                            <a asp-controller="Users" asp-action="Profile" asp-route-id="@user.Id"
+                               class="btn btn-outline-secondary btn-sm">Профіль</a>
 
-    @foreach (var user in Model)
-    {
-        <tr>
-            <td>@user.Email</td>
-            <td>
+                            @* Кнопка Публікацій *@
+                            <a asp-controller="Photos" asp-action="UserPosts" asp-route-id="@user.Id"
+                               class="btn btn-primary btn-sm">Публікації</a>
 
-                <a asp-controller="Photos"
-                   asp-action="UserPosts"
-                   asp-route-id="@user.Id"
-                   class="btn btn-primary btn-sm">
-                    Переглянути публікації
-                </a>
+                            @if (user.Id != currentUserId)
+                            {
+                                bool isFollowing = Context.Follows.Any(f => f.FollowerId == currentUserId && f.FollowingId == user.Id);
 
-                <a asp-controller="Follow"
-                   asp-action="FollowUser"
-                   asp-route-id="@user.Id"
-                   class="btn btn-success btn-sm">
-                    Підписатися
-                </a>
-
-            </td>
-        </tr>
-    }
-</table>
+                                <form asp-controller="Follow" asp-action="ToggleFollow" method="post" class="m-0">
+                                    <input type="hidden" name="targetUserId" value="@user.Id" />
+                                    <button type="submit" style="min-width: 110px;"
+                                            class="btn btn-sm @(isFollowing ? "btn-danger" : "btn-outline-success")">
+                                        @(isFollowing ? "Відписатися" : "Підписатися")
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
